@@ -160,7 +160,6 @@ def bcl_function_parameters(Fdrop,fish,experiment,trace2smooth,wdt,lamb,varB,var
     from scipy import fftpack
     import math
     from math import log, pi
-    import admin_functions as adfn
     from scipy.ndimage import gaussian_filter1d
     import random as rand 
 
