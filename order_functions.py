@@ -9,7 +9,7 @@ import glob
 
 
 #paths
-datapath = "/Volumes/Dominic 10tb/Data2process/Project/PTZ-WILDTYPE/200116-WILDTYPE/"
+datapath = "/Volumes/Dominic 10tb/Data2process/Project/PTZ-WILDTYPE/200123-WILDTYPE/"
 os.chdir(datapath)   #set current directory to datapath
 tifs = sorted(glob.glob("*tif"))  
 

@@ -152,8 +152,9 @@ def fish_thresh(trace, coord, mxmin, Ftrace, Fdrop, thresh):   # Remove noisy ce
     return (kepttr, keptco, excltr, exclco)
 
 
+
 #=====================================================================================================
-def bcl_function_parameters1(Fdrop,fish,experiment,trace2smooth,wdt,lamb,varB,varC,Cmean,frequency, gausfilt, mode): 
+def bcl_function_parameters(wdt, savepath, experiment, name, lamb, varB, varC, Cmean, frequency, gausfilt, mode):
 #=====================================================================================================
 #Pythonic Bayesian cleaner - PCL
 #----------------------------------
@@ -162,90 +163,10 @@ def bcl_function_parameters1(Fdrop,fish,experiment,trace2smooth,wdt,lamb,varB,va
     from math import log, pi
     from scipy.ndimage import gaussian_filter1d
     import random as rand 
-
-    if mode == 'see':
-        rdm = rand.sample(range(0, trace2smooth.shape [0]), 5)
+    c, N, B, sks, dff, loglik, dt = [],[],[],[],[],[],[]
     
-        for i in rdm:
-            trace = trace2smooth[i]
-    
-            #Preprocess Function
-            t1 = ((trace + 500)/ (500 + np.mean(trace[np.where(trace < np.quantile(trace, 0.08, axis = 0))[0]]))) - 1 
-            #normalise trace 
-            y = gaussian_filter1d(t1, gausfilt, axis = 0)
-            difft = diff(t1) 
-            varX = get_variance_of_the_decreases(difft)
-
-            #Declare Variables
-            N = len(y)
-            B = np.zeros(y.shape[0])
-            c =  np.zeros(y.shape[0])
-            sks = np.zeros(y.shape[0])
-            B[0] = np.mean(y[0:500])  #make baseline starting point
-            dff = np.zeros(y.shape[0])
-            loglik = 0
-            dt = float(1) / frequency
-    
-            #each time point, chance calcium event vs baseline shift
-            #bcl outputs a timeseries for baseline and calcium
-    
-            for t in range(1,N):
-        
-                #new calcium value, if no calcium spike at current t
-                #LET CALCIUM DECAY - IF CALCIUM AT T-1, THEN DECAY - IF NO CALCIUM AT T -1, CNEW REMAINS 0 
-                #calcium at previous time point * exponential - if calcium = 0, then cnew = 0
-                cnew = c[t - 1] * np.exp(-lamb* dt)  
-
-                #new baseline value, if no calcium spike at current t - i.e. IF BASELINE IS DECREASING 
-                #SIGNAL AT T - MODELLED CALCIUM (with variance) + BASELINE BEFORE (with variance)
-                #(Baseline at t-1 * variance of decreases) + (Signal at t, - cnew * baseline variance + frequency) 
-                #/ variances of overall data 
-                Bnew = (varX * B[t - 1] + varB * dt * (y[t] - cnew)) / (varX + varB * dt)
-        
-                #p of timestep being explained by baseline, not spike
-                logp0 = log(1 - wdt) - 0.5 * log(2 * pi) - 0.5 * log(varX + varB * dt) - (y[t] - cnew - B[t - 1]) ** 2 / (2 * varX + 2 * varB * dt)
-        
-                #new calcium value, if calcium spike
-                # (signal at t, - baseline at t-1, - decayed calcium) + (mean calcium + calcium decay)
-                # / (1 + variance of data)
-                cspike = Cmean + cnew + (y[t] - cnew - B[t - 1]) / (1 + varB * dt / varC + varX / varC)
-                cspike = np.clip(cspike, 0, 10000)
-        
-                #new baseline value, if calcium spike
-                #Baseline at t-1, + variance of baseline*freq/variance of calcium * (calcium spike - decay - mean cal)
-                Bspike = B[t - 1] + varB * dt / varC * (cspike - cnew - Cmean)
-        
-                #p of timestep being explained by spike
-                logp1 = log(wdt) - 0.5 * log(2 * pi) - 0.5 * log(varX + varB * dt + varC) - (y[t] - cnew - B[t - 1] - Cmean)**2 / (2 * varX + 2 * varB * dt + 2 * varC)
-        
-        
-                #compares logp1 vs logp0 
-                if logp1 < logp0:
-                    c[t] = cnew
-                    B[t] = Bnew
-                    loglik = loglik + logp0
-
-                else:
-                    c[t] = cspike
-                    B[t] = Bspike
-                    loglik = loglik + logp1
-    
-            dfftsks = diff(c)
-            sks[np.where(np.asarray(dfftsks) > 0)] = 1
-            dff = (y - B)
-   
-    
-            plt.figure(figsize = (25,5))
-            plt.plot(y) #normalised, filtered trace
-            plt.plot(c) #modelled calcium
-            plt.plot(B) #modelled baseline
-            #plt.plot(sks) #binary spikes
-            #plt.plot(dff) #deltaf/f
-            plt.show()    
-            
-
     if mode == 'save':
-        
+        trace2smooth = np.load(name)
         Barray = np.zeros(trace2smooth.shape)
         carray = np.zeros(trace2smooth.shape)
         sksarray = np.zeros(trace2smooth.shape)
@@ -324,25 +245,15 @@ def bcl_function_parameters1(Fdrop,fish,experiment,trace2smooth,wdt,lamb,varB,va
             sksarray[i] = sks 
             dffarray[i] = dff
     
-        np.save(Fdrop + 'Project/' + experiment + os.sep + fish[:fish.find('run')+6] + '_0.570baseline.npy', Barray)
-        np.save(Fdrop + 'Project/' + experiment + os.sep + fish[:fish.find('run')+6] + '_0.570modelcal.npy', carray)  
-        np.save(Fdrop + 'Project/' + experiment + os.sep + fish[:fish.find('run')+6] + '_0.570binarised.npy', sksarray)  
-        np.save(Fdrop + 'Project/' + experiment + os.sep + fish[:fish.find('run')+6] + '_0.570deltaff.npy', dffarray)  
+        np.save(savepath + 'Project/' + experiment + os.sep + name[:name.find('run')+6] + '_' + str(wdt) + '0baseline.npy', Barray)
+        np.save(savepath + 'Project/' + experiment + os.sep + name[:name.find('run')+6] + '_' + str(wdt) + '0modelcal.npy', carray)  
+        np.save(savepath + 'Project/' + experiment + os.sep + name[:name.find('run')+6] + '_' + str(wdt) + '0binarised.npy', sksarray)  
+        np.save(savepath + 'Project/' + experiment + os.sep + name[:name.find('run')+6] + '_' + str(wdt) + '0deltaff.npy', dffarray)  
             
-    return c,B,sks,y,dff
-
-#=====================================================================================================
-def bcl_function_parameters2(Fdrop,fish,experiment,trace2smooth,wdt,lamb,varB,varC,Cmean,frequency, gausfilt, mode): 
-#=====================================================================================================
-#Pythonic Bayesian cleaner - PCL
-#----------------------------------
-    from scipy import fftpack
-    import math
-    from math import log, pi
-    from scipy.ndimage import gaussian_filter1d
-    import random as rand 
+    return c,sks,dff, B
 
     if mode == 'see':
+        trace2smooth = np.load(name)
         rdm = rand.sample(range(0, trace2smooth.shape [0]), 5)
     
         for i in rdm:
@@ -421,94 +332,8 @@ def bcl_function_parameters2(Fdrop,fish,experiment,trace2smooth,wdt,lamb,varB,va
             #plt.plot(sks) #binary spikes
             #plt.plot(dff) #deltaf/f
             plt.show()    
-            
-
-    if mode == 'save':
-        
-        Barray = np.zeros(trace2smooth.shape)
-        carray = np.zeros(trace2smooth.shape)
-        sksarray = np.zeros(trace2smooth.shape)
-        dffarray = np.zeros(trace2smooth.shape)
-        
-        for i in range(trace2smooth.shape[0]):
-            trace = trace2smooth[i]
     
-            #Preprocess Function
-            t1 = ((trace + 500)/ (500 + np.mean(trace[np.where(trace < np.quantile(trace, 0.08, axis = 0))[0]]))) - 1 
-            #normalise trace 
-            y = gaussian_filter1d(t1, 0.6, axis = 0)
-            difft = diff(t1) 
-            varX = get_variance_of_the_decreases(difft)
-
-            #Declare Variables
-            N = len(y)
-            B = np.zeros(y.shape[0])
-            c =  np.zeros(y.shape[0])
-            sks = np.zeros(y.shape[0])
-            B[0] = np.mean(y[0:500])  #make baseline starting point
-            dff = np.zeros(y.shape[0])
-            loglik = 0
-            dt = float(1) / frequency
-    
-            #each time point, chance calcium event vs baseline shift
-            #bcl outputs a timeseries for baseline and calcium
-    
-            for t in range(1,N):
-        
-                #new calcium value, if no calcium spike at current t
-                #LET CALCIUM DECAY - IF CALCIUM AT T-1, THEN DECAY - IF NO CALCIUM AT T -1, CNEW REMAINS 0 
-                #calcium at previous time point * exponential - if calcium = 0, then cnew = 0
-                cnew = c[t - 1] * np.exp(-lamb* dt)  
-
-                #new baseline value, if no calcium spike at current t - i.e. IF BASELINE IS DECREASING 
-                #SIGNAL AT T - MODELLED CALCIUM (with variance) + BASELINE BEFORE (with variance)
-                #(Baseline at t-1 * variance of decreases) + (Signal at t, - cnew * baseline variance + frequency) 
-                #/ variances of overall data 
-                Bnew = (varX * B[t - 1] + varB * dt * (y[t] - cnew)) / (varX + varB * dt)
-        
-                #p of timestep being explained by baseline, not spike
-                logp0 = log(1 - wdt) - 0.5 * log(2 * pi) - 0.5 * log(varX + varB * dt) - (y[t] - cnew - B[t - 1]) ** 2 / (2 * varX + 2 * varB * dt)
-        
-                #new calcium value, if calcium spike
-                # (signal at t, - baseline at t-1, - decayed calcium) + (mean calcium + calcium decay)
-                # / (1 + variance of data)
-                cspike = Cmean + cnew + (y[t] - cnew - B[t - 1]) / (1 + varB * dt / varC + varX / varC)
-                cspike = np.clip(cspike, 0, 10000)
-        
-                #new baseline value, if calcium spike
-                #Baseline at t-1, + variance of baseline*freq/variance of calcium * (calcium spike - decay - mean cal)
-                Bspike = B[t - 1] + varB * dt / varC * (cspike - cnew - Cmean)
-        
-                #p of timestep being explained by spike
-                logp1 = log(wdt) - 0.5 * log(2 * pi) - 0.5 * log(varX + varB * dt + varC) - (y[t] - cnew - B[t - 1] - Cmean)**2 / (2 * varX + 2 * varB * dt + 2 * varC)
-        
-        
-                #compares logp1 vs logp0 
-                if logp1 < logp0:
-                    c[t] = cnew
-                    B[t] = Bnew
-                    loglik = loglik + logp0
-
-                else:
-                    c[t] = cspike
-                    B[t] = Bspike
-                    loglik = loglik + logp1
-    
-            dfftsks = diff(c)
-            sks[np.where(np.asarray(dfftsks) > 0)] = 1
-            dff = (y - B)
-            
-            Barray[i] = B
-            carray[i] = c
-            sksarray[i] = sks 
-            dffarray[i] = dff
-    
-        np.save(Fdrop + 'Project/' + experiment + os.sep + fish[:fish.find('run')+6] + '_0.590baseline.npy', Barray)
-        np.save(Fdrop + 'Project/' + experiment + os.sep + fish[:fish.find('run')+6] + '_0.590modelcal.npy', carray)  
-        np.save(Fdrop + 'Project/' + experiment + os.sep + fish[:fish.find('run')+6] + '_0.590binarised.npy', sksarray)  
-        np.save(Fdrop + 'Project/' + experiment + os.sep + fish[:fish.find('run')+6] + '_0.590deltaff.npy', dffarray)  
-            
-    return c,B,sks,y,dff
+    return c,sks,dff, B
 
 
 
@@ -557,8 +382,6 @@ def get_variance_of_the_decreases(difft): # Load difference timeseries
     variance = squared_sum_of_decreases / number_of_decreases
     variance = math.sqrt(variance)
     return variance
-
-
 
 
 
