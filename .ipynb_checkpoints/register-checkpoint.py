@@ -13,10 +13,10 @@ def rotate(Freg, opslist,degree): #rotate all images into correct orientation fo
     f, axarr = plt.subplots(2,5, sharey = True, sharex = True, figsize = (40,30))
     axarr = axarr.flatten()
     for i in range(len(opslist)):
-        ops = np.load(Freg + opslist[i])
+        ops = np.load(Freg + opslist[i], allow_pickle=True)
         ops = ops[()]
         raw = ops['meanImg']
-        rotated_img = ndimage.rotate(raw, degree*60)
+        rotated_img = ndimage.rotate(raw, degree, reshape=False)
         rotimglist[i] = rotated_img
         axarr[i].matshow(rotated_img)
     
@@ -24,6 +24,16 @@ def rotate(Freg, opslist,degree): #rotate all images into correct orientation fo
     plt.show()
 
     return rotimglist
+
+#===============================================================================
+def rotate_point(origin, point, angle): #rotate all images into correct orientation for registration
+#===============================================================================
+    import math
+    import numpy as np
+    angle = np.radians(angle)
+    dot1 = origin[0] + math.cos(angle) * (point[0] - origin[0]) - math.sin(angle) * (point[1] - origin[1])
+    dot2 = origin[1] + math.sin(angle) * (point[0] - origin[0]) + math.cos(angle) * (point[1] - origin[1])
+    return(dot1,dot2)
 
 #===============================================================================
 def fishspec(Fdata, prefx = ''):
@@ -182,7 +192,7 @@ def fishplot(img, overl = '', orient = 'axial', sliceno = 20, al = .5, col = 'ma
 #--------------
 #---------------
 #===============================================================================
-def savemeanimg(Freg, opslist, Frotate): #save mean image as hyperstack for registration
+def savemeanimg(Freg, opslist, Frotate, degree): #save mean image as hyperstack for registration
 #===============================================================================
     import os
     from PIL import Image
@@ -190,5 +200,9 @@ def savemeanimg(Freg, opslist, Frotate): #save mean image as hyperstack for regi
 
     for i in range(len(Frotate)):
         omlist.append(Image.fromarray(Frotate[i]))
-    omlist[0].save(Freg + os.sep + opslist[0][:opslist[0].find('run')+6] + "_meanimgstack.tif", save_all=True,
+    omlist[0].save(Freg + os.sep + opslist[0][:opslist[0].find('run')+6] + "_meanimgstack" + "_" + str(degree) + "deg.tif", save_all=True,
                append_images=omlist[1:])
+
+    
+    
+    
