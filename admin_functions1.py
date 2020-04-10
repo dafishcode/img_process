@@ -40,15 +40,15 @@ def name_zero(pad, start, end, step): #add 0 to string of number - for saving
 
 
 #=============================
-def name_list(path, experiment, inp, string): #return name list
+def name_list(path, experiment, num, string): #return name list
 #=============================
     import os 
     import glob
     os.chdir(path + 'Project/' + experiment)
-    if inp < 10:
-        out = '0' + str(inp)
-    elif inp >9:
-        out = str(inp)
+    if num < 10:
+        out = '0' + str(num)
+    elif num >9:
+        out = str(num)
     return(sorted(glob.glob('*E-' + str(out) + string)))
 
 #=============================
@@ -80,12 +80,25 @@ def save_name(i, name_li): #find save name
     return(name_li[i][:name_li[i].find('run')+6])
 
 #==============================
-def list_of_list(lengths): #expects a list of lists
+def list_of_list(rows, cols): #expects a list of lists
 #===============================
-    listoflist = []
-    for i in range(len(lengths)):
-        listoflist = [listoflist for i in range(lengths[i] + 1)]
+    listoflist = [[[] for i in range(cols)] for j in range(rows)]
     return(listoflist)
+
+
+#=======================================================================
+def mean_distribution(distlist, choose): #Generate mean distribution 
+#=======================================================================
+    import numpy as np
+    comb_vec = []
+    for i in range(len(distlist)):
+        comb_vec = np.append(comb_vec, np.load(distlist[i])[choose])
+    av = np.unique(comb_vec, return_counts=True)[0]
+    freq = (np.unique(comb_vec, return_counts=True)[1]/50).astype(int)
+    mean_vec = []
+    for e in range(freq.shape[0]):
+        mean_vec = np.append(mean_vec, np.full(freq[e],av[e]))
+    return(mean_vec)
 
 
 #PROCESS
@@ -128,7 +141,65 @@ def parallel(cores, listlist, func, paramlist): #make sure n_cores is divisible 
                     count+=1 
             output = pool.starmap(func, paramlist_levels)
 
+        
+#=======================================================================================        
+def timeprint(r, numrows, name): #Print row number
+#=======================================================================================
+    if r % round((10*numrows/100)) == 0: 
+            print("Doing row " + str(r) + " of " + str(numrows) + " for " + name)
+            
+            
 #MATHS
 #=============================
 #=============================
+#=======================================================================================
+def window(size, times): #make window of given size that is divisible of time series
+#=======================================================================================
+    for i in range(100):
+        if times % size ==0:
+            break
+        else:
+            size+=1
+    return(size)
+
+#=======================================================================================
+def ttest(mydf, label, variable, comp_list, mode):
+#=======================================================================================
+    from scipy import stats 
+    #Single comparison - label to compare to first element in list
+    if mode == 'single':
+        vals = list_of_list(len(comp_list)-1, 5)
+        sig = 0.05/(len(comp_list)-1)
+        base = comp_list[0]
+        for i in range(len(comp_list)-1):
+            vals[i][0], vals[i][1] = stats.ttest_rel(mydf[variable].where(mydf[label] == base).dropna(),mydf[variable].where(mydf[label] == comp_list[i+1]).dropna())[0],stats.ttest_rel(mydf[variable].where(mydf[label] == base).dropna(),mydf[variable].where(mydf[label] == comp_list[i+1]).dropna())[1]
+            vals[i][2] = sig
+            vals[i][4] = str(base) + ' - ' + str(comp_list[i+1])
+            if vals[i][1] < sig:
+                vals[i][3] = 'Significant'
+            else:
+                vals[i][3] = 'Not significant'
+    
+    
+    if mode == 'multiple':
+        vals = list(range(len(comp_list)))
+        ncomp = 0
+        for i in range(len(comp_list)):
+            ncomp+= (len(comp_list)-1) - i
+        sig = 0.05/ncomp
+        
+        for i in range(len(comp_list)):
+            subval = list_of_list(len(comp_list), 5)
+            for e in range(len(comp_list)):
+                subval[e][0], subval[e][1] = stats.ttest_rel(mydf[variable].where(mydf[label] == comp_list[i]).dropna(),mydf[variable].where(mydf[label] == comp_list[e]).dropna())[0],stats.ttest_rel(mydf[variable].where(mydf[label] == comp_list[i]).dropna(),mydf[variable].where(mydf[label] == comp_list[e]).dropna())[1]
+                subval[e][2] = sig
+                subval[e][4] = str(comp_list[i]) + ' - ' + str(comp_list[e])
+                if subval[e][1] < sig:
+                    subval[e][3] = 'Significant'
+                else:
+                    subval[e][3] = 'Not significant'
+            vals[i] = subval
+    
+    
+    return(vals)
 
