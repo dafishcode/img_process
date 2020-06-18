@@ -32,8 +32,8 @@ def fish_load(Fs2p, Fsave, fish, experiment, date): # Load imaging datasets
     for i in range(len(planelist)):
         os.chdir(Fs2p + os.sep + "plane" + str(i)) 
         allcells = np.load("iscell.npy")  
-        fl = np.load("F.npy") [allcells [:,1] > 0.5, :] 
-        stats = np.load("stat.npy") [allcells [:,1] > 0.5]  
+        fl = np.load("F.npy") 
+        stats = np.load("stat.npy") 
         xy = np.zeros((len(stats),2))  
         for  j in range (len(stats)):          
             xy [j,] = stats [j] ['med']
