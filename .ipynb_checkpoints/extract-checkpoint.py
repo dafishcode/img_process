@@ -33,6 +33,7 @@ def fish_load(Fs2p, Fsave, fish, experiment, date): # Load imaging datasets
         os.chdir(Fs2p + os.sep + "plane" + str(i)) 
         allcells = np.load("iscell.npy")  
         fl = np.load("F.npy") 
+        
         stats = np.load("stat.npy") 
         xy = np.zeros((len(stats),2))  
         for  j in range (len(stats)):          
@@ -61,6 +62,54 @@ def fish_load(Fs2p, Fsave, fish, experiment, date): # Load imaging datasets
     print('Saved trace and coordinates in ' + str(experiment))
     
 
+#=======================================================================
+def fish_reload_block(planes, Fsave, fish, experiment ): # Load imaging datasets 
+#=======================================================================
+# This function looks in the Fdata folder for suite2p plane files and saves extracted cell traces/coordinates into Fsave (a numpy file containing a ncells x ntimepoints array of data - from all active cells as defined in suite2p, ordered by plane)
+    os.chdir(planes)
+    Fsave = Fsave
+
+    # Find planes of suite2p output
+    #------------------------------
+    planelist = sorted(glob.glob('*plane*'))
+    print('Found ' + str(len(planelist)) + ' planes') 
+    
+    # Compile coordinates and trace files for all planes into lists
+    #---------------------------------------------------------------------
+    coord = list((range(len(planelist))))
+    trace = list((range(len(planelist))))
+    cells = list((range(len(planelist))))
+    for i in range(len(planelist)):
+        os.chdir(planes + os.sep + planelist[i] + os.sep + 'suite2p/plane0/') 
+        allcells = np.load("iscell.npy")  
+        fl = np.load("F.npy") 
+        stats = np.load("stat.npy", allow_pickle = True) 
+        xy = np.zeros((len(stats),2))  
+        for  j in range (len(stats)):          
+            xy [j,] = stats [j] ['med']
+        xyz = np.concatenate([xy, np.full((len(fl), 1), i)], axis = 1)
+        coord[i] = xyz
+        trace[i] = fl
+    
+    # Concatenate separate arrays for coordinate and xy file into two arrays 
+    #--------------------------------------------------------------------
+    com_coord = np.concatenate([coord[i] for i in range(len(planelist))])
+    com_signal = np.concatenate([trace[i] for i in range(len(planelist))]) 
+    print('Found ' + str(com_coord.shape[0]) + ' cells')
+    
+    # Save as three separate files (int file is for R) 
+    #-------------------------------------------------
+    os.chdir(planes + os.sep + planelist[i] + os.sep)
+    namelist = sorted(glob.glob('*reg*'))
+    p_id = namelist[0][:namelist[0].find('dpf')-1] + 'BLN-PTZ05-PTZ20_' + namelist[0][namelist[0].find('run'):namelist[0].find('run')+6]
+
+
+    np.save(Fsave + os.sep + p_id + '_'  'allcoord.npy', com_coord)
+    np.save(Fsave + os.sep + p_id + '_' + 'alltrace.npy', com_signal)
+    print('Saved trace and coordinates in ' + str(experiment))
+
+
+    
 #========================================================================
 def fish_filter(dat, highcut, lowcut, nplt):   # Filter out frequencies
 #========================================================================
@@ -163,14 +212,13 @@ def bcl_function_parameters(wdt, savepath, experiment, name, lamb, varB, varC, C
     from math import log, pi
     from scipy.ndimage import gaussian_filter1d
     import random as rand 
-    c, N, B, sks, dff, loglik, dt = [],[],[],[],[],[],[]
+    c, N, B, sks, loglik, dt = [],[],[],[],[],[]
     
     if mode == 'save':
         trace2smooth = np.load(name)
         Barray = np.zeros(trace2smooth.shape)
         carray = np.zeros(trace2smooth.shape)
         sksarray = np.zeros(trace2smooth.shape)
-        dffarray = np.zeros(trace2smooth.shape)
         
         for i in range(trace2smooth.shape[0]):
             trace = trace2smooth[i]
@@ -238,19 +286,15 @@ def bcl_function_parameters(wdt, savepath, experiment, name, lamb, varB, varC, C
     
             dfftsks = diff(c)
             sks[np.where(np.asarray(dfftsks) > 0)] = 1
-            dff = (y - B)
             
             Barray[i] = B
             carray[i] = c
             sksarray[i] = sks 
-            dffarray[i] = dff
     
-        np.save(savepath + 'Project/' + experiment + os.sep + name[:name.find('run')+6] + '_' + str(wdt) + '0baseline.npy', Barray)
-        np.save(savepath + 'Project/' + experiment + os.sep + name[:name.find('run')+6] + '_' + str(wdt) + '0modelcal.npy', carray)  
-        np.save(savepath + 'Project/' + experiment + os.sep + name[:name.find('run')+6] + '_' + str(wdt) + '0binarised.npy', sksarray)  
-        np.save(savepath + 'Project/' + experiment + os.sep + name[:name.find('run')+6] + '_' + str(wdt) + '0deltaff.npy', dffarray)  
-            
-    return c,sks,dff, B
+        np.save(savepath + 'Project/' + experiment + os.sep + name[:name.find('run')+6] + '_' + str(wdt) + 'modelcal.npy', carray)  
+        np.save(savepath + 'Project/' + experiment + os.sep + name[:name.find('run')+6] + '_' + str(wdt) + 'binarised.npy', sksarray)  
+
+    return c,sks, B
 
     if mode == 'see':
         trace2smooth = np.load(name)
@@ -322,7 +366,6 @@ def bcl_function_parameters(wdt, savepath, experiment, name, lamb, varB, varC, C
     
             dfftsks = diff(c)
             sks[np.where(np.asarray(dfftsks) > 0)] = 1
-            dff = (y - B)
    
     
             plt.figure(figsize = (25,5))
@@ -330,10 +373,9 @@ def bcl_function_parameters(wdt, savepath, experiment, name, lamb, varB, varC, C
             plt.plot(c) #modelled calcium
             plt.plot(B) #modelled baseline
             #plt.plot(sks) #binary spikes
-            #plt.plot(dff) #deltaf/f
             plt.show()    
     
-    return c,sks,dff, B
+    return c,sks, B
 
 
 
@@ -426,6 +468,44 @@ def fish_backup(Fs2p, backup, experiment, fish, date, makesubdir): # Load imagin
         for x in range(len(tifs)):
             shutil.move(Fs2p + "/plane" + str(i) + os.sep + 'reg_tif' + os.sep + tifs[x], backup + 'Project/' + fold1 + os.sep + fold2 + os.sep + fold3 + os.sep + p_id + '_plane' + str(i) + '_reg' + tifs[x][9:])
         print('plane' + str(i) + ' backed up')
+        
+        
+        
+#=======================================================================
+def fish_rebackup(fish, savename, planes, backup, experiment): # Load imaging datasets 
+#=======================================================================
+    import shutil
+
+    #define subdirectories
+    #--------------------------------------------------------
+    os.chdir(backup)
+    fold1 = fish + '/'
+    fold2 = '2photon'
+    fold3 = savename[savename.find('sess'):savename.find('dpf')+3]
+
+    #create new subdirectories (only do once for each fish)
+    #--------------------------------------------------------
+    os.chdir(backup + '/Project/')
+    os.mkdir(fold1)
+    os.chdir(backup + '/Project' + os.sep + fold1)
+    os.mkdir(fold2)
+    os.chdir(backup + '/Project' + os.sep + fold1 + os.sep + fold2)
+    os.mkdir(fold3)
+    
+    #define subdirectories
+    #--------------------------------------------------------
+
+    p_id = savename[:savename.find('dpf')-1] + 'BLN-PTZ05-PTZ20_' + savename[savename.find('run'):] 
+    for i in range(1,10):
+        shutil.move(planes + '/' + fish + '_plane' + str(i) + '/suite2p/plane0'+ "/ops.npy", backup + 'Project/' + fold1 + os.sep + fold2 + os.sep + fold3 + os.sep + p_id + '_plane' + str(i) + '_ops.npy' )
+        shutil.move(planes + '/' + fish + '_plane' + str(i) + '/suite2p/plane0' + "/stat.npy", backup + 'Project/' + fold1 + os.sep + fold2 + os.sep + fold3 + os.sep + p_id + '_plane' + str(i) + '_stat.npy')
+        os.chdir(planes + '/' + fish + '_plane' + str(i) + '/suite2p/plane0' + '/reg_tif')
+        tifs = sorted(glob.glob("*tif")) 
+        for x in range(len(tifs)):
+            shutil.move(planes + '/' + fish + '_plane' + str(i) + '/suite2p/plane0' + '/reg_tif' + os.sep + tifs[x], backup + 'Project/' + fold1 + os.sep + fold2 + os.sep + fold3 + os.sep + p_id + '_plane' + str(i) + '_reg' + tifs[x][4:7] + '.tif')
+        print('plane' + str(i) + ' backed up')
+        
+        
         
 #========================================================================
 def fish_save(experiment, Fcoord, trace, coord, mxmin, Ftrace, Fdrop, thresh):  
