@@ -34,7 +34,7 @@ def fish_load(Fs2p, Fsave, fish, experiment, date): # Load imaging datasets
         allcells = np.load("iscell.npy")  
         fl = np.load("F.npy") 
         
-        stats = np.load("stat.npy") 
+        stats = np.load("stat.npy", allow_pickle=True) 
         xy = np.zeros((len(stats),2))  
         for  j in range (len(stats)):          
             xy [j,] = stats [j] ['med']
@@ -203,7 +203,7 @@ def fish_thresh(trace, coord, mxmin, Ftrace, Fdrop, thresh):   # Remove noisy ce
 
 
 #=====================================================================================================
-def bcl_function_parameters(wdt, savepath, experiment, name, lamb, varB, varC, Cmean, frequency, gausfilt, mode):
+def bcl_function_parameters(wdt, savepath, experiment, name, file, lamb, varB, varC, Cmean, frequency, gausfilt, mode):
 #=====================================================================================================
 #Pythonic Bayesian cleaner - PCL
 #----------------------------------
@@ -215,7 +215,8 @@ def bcl_function_parameters(wdt, savepath, experiment, name, lamb, varB, varC, C
     c, N, B, sks, loglik, dt = [],[],[],[],[],[]
     
     if mode == 'save':
-        trace2smooth = np.load(name)
+        #trace2smooth = np.load(name)
+        trace2smooth = file
         Barray = np.zeros(trace2smooth.shape)
         carray = np.zeros(trace2smooth.shape)
         sksarray = np.zeros(trace2smooth.shape)
@@ -291,10 +292,11 @@ def bcl_function_parameters(wdt, savepath, experiment, name, lamb, varB, varC, C
             carray[i] = c
             sksarray[i] = sks 
     
-        np.save(savepath + 'Project/' + experiment + os.sep + name[:name.find('run')+6] + '_' + str(wdt) + 'modelcal.npy', carray)  
-        np.save(savepath + 'Project/' + experiment + os.sep + name[:name.find('run')+6] + '_' + str(wdt) + 'binarised.npy', sksarray)  
+        #np.save(savepath + 'Project/' + experiment + os.sep + name[:name.find('run')+6] + '_' + 'modelcal.npy', carray)  
+        #np.save(savepath + 'Project/' + experiment + os.sep + name[:name.find('run')+6] + '_' + 'binarised.npy', sksarray)  
 
-    return c,sks, B
+        np.save(savepath + 'Project/' + experiment + os.sep + name + '_' + 'binarised.npy', sksarray)  
+        return c,sks, B
 
     if mode == 'see':
         trace2smooth = np.load(name)
@@ -375,7 +377,7 @@ def bcl_function_parameters(wdt, savepath, experiment, name, lamb, varB, varC, C
             #plt.plot(sks) #binary spikes
             plt.show()    
     
-    return c,sks, B
+        return c,sks, B
 
 
 
@@ -425,6 +427,17 @@ def get_variance_of_the_decreases(difft): # Load difference timeseries
     variance = math.sqrt(variance)
     return variance
 
+#=======================================================================
+def deltaff(old_trace, percentile): # Calculate deltaf/f
+#=======================================================================
+    mini = np.min(old_trace)
+    trace = old_trace - np.min(old_trace)
+    newtrace = trace
+    baseline = np.quantile(trace, percentile, axis= 0)
+    newtrace[np.where(trace <= baseline)] = 0 #set all values below baseline to 0
+    pos_index = np.where(trace > baseline) #indeces of values above baseline
+    newtrace[pos_index] = (trace[pos_index] - baseline)/baseline
+    return(newtrace)
 
 
 
@@ -432,80 +445,99 @@ def get_variance_of_the_decreases(difft): # Load difference timeseries
 #--------------
 #---------------
 #=======================================================================
-def fish_backup(Fs2p, backup, experiment, fish, date, makesubdir): # Load imaging datasets 
+def fish_backup(Fs2p, backup, experiment, fish, date, mode, dir_mode): # Load imaging datasets 
 #=======================================================================
-    import shutil
-    os.chdir(Fs2p)
-    planes = sorted(glob.glob("plane*")) 
+    if mode ==  'multiplane':
+        import shutil
+        os.chdir(Fs2p)
+        planes = sorted(glob.glob("plane*")) 
 
-    #define subdirectories
-    #--------------------------------------------------------
-    fold1 = experiment + '-' + fish[1:3] + '/'
-    fold2 = fish[fish.find(date[7:]) + 1 + len(date[7:]):fish.find('dpf') - 2] 
-    fold3 = fish[fish.find('se'):fish.find('se')+8] + fish[fish.find('dpf')-1:fish.find('dpf')+3]
+        #define subdirectories
+        #--------------------------------------------------------
+        fold1 = experiment + '-' + fish[1:3] + '/'
+        fold2 = fish[fish.find(date[7:]) + 1 + len(date[7:]):fish.find('dpf') - 2] 
+        fold3 = fish[fish.find('se'):fish.find('se')+8] + fish[fish.find('dpf')-1:fish.find('dpf')+3]
 
-    #create new subdirectories (only do once for each fish)
-    #--------------------------------------------------------
-    if makesubdir == 'yes':
-        os.chdir(backup + '/Project/')
-        os.mkdir(fold1)
-        os.chdir(backup + '/Project' + os.sep + fold1)
-        os.mkdir(fold2)
-        os.chdir(backup + '/Project' + os.sep + fold1 + os.sep + fold2)
-        os.mkdir(fold3)
-    
-    #define subdirectories
-    #--------------------------------------------------------
+        #create new subdirectories (only do once for each fish)
+        #--------------------------------------------------------
+        if dir_mode == 'new':
+            os.chdir(backup + '/Project/')
+            os.mkdir(fold1)
+            os.chdir(backup + '/Project' + os.sep + fold1)
+            os.mkdir(fold2)
+            os.chdir(backup + '/Project' + os.sep + fold1 + os.sep + fold2)
+            os.mkdir(fold3)
+            
+        elif dir_mode == 'add_condition':
+            fold1 = fold1
+            fold2 = fold2
+            fold3 = fold3
+            
+        elif dir_mode == 'add_day':
+            os.chdir(backup + '/Project' + os.sep + fold1 + os.sep + fold2)
+            os.mkdir(fold3)
 
-    p_id = experiment + '-' + fish[1:3] + '_' + fish[fish.find(date[7:]) + 1 + len(date[7:]):fish.find('dpf') - 2] + '_' + fish[fish.find('se'):fish.find('se')+8] + fish[fish.find('dpf')-1:fish.find('dpf')+3] + '_' + fish[fish.find(fish[1:3])+3:fish.find(date[7:])-1] + '_' + fish[fish.find('run'):fish.find('run')+6]
+        #define subdirectories
+        #--------------------------------------------------------
+
+        p_id = experiment + '-' + fish[1:3] + '_' + fish[fish.find(date[7:]) + 1 + len(date[7:]):fish.find('dpf') - 2] + '_' + fish[fish.find('se'):fish.find('se')+8] + fish[fish.find('dpf')-1:fish.find('dpf')+3] + '_' + fish[fish.find(fish[1:3])+3:fish.find(date[7:])-1] + '_' + fish[fish.find('run'):fish.find('run')+6]
 
 
-    os.chdir(Fs2p + os.sep + 'plane0' + os.sep + 'reg_tif')
-    tifs = sorted(glob.glob("*tif")) 
-    for i in range(0,10):
-        shutil.move(Fs2p + "/plane" + str(i) + "/ops.npy", backup + 'Project/' + fold1 + os.sep + fold2 + os.sep + fold3 + os.sep + p_id + '_plane' + str(i) + '_ops.npy' )
-        shutil.move(Fs2p + "/plane" + str(i) + "/stat.npy", backup + 'Project/' + fold1 + os.sep + fold2 + os.sep + fold3 + os.sep + p_id + '_plane' + str(i) + '_stat.npy')
-        for x in range(len(tifs)):
-            shutil.move(Fs2p + "/plane" + str(i) + os.sep + 'reg_tif' + os.sep + tifs[x], backup + 'Project/' + fold1 + os.sep + fold2 + os.sep + fold3 + os.sep + p_id + '_plane' + str(i) + '_reg' + tifs[x][9:])
-        print('plane' + str(i) + ' backed up')
-        
-        
-        
-#=======================================================================
-def fish_rebackup(fish, savename, planes, backup, experiment): # Load imaging datasets 
-#=======================================================================
-    import shutil
-
-    #define subdirectories
-    #--------------------------------------------------------
-    os.chdir(backup)
-    fold1 = fish + '/'
-    fold2 = '2photon'
-    fold3 = savename[savename.find('sess'):savename.find('dpf')+3]
-
-    #create new subdirectories (only do once for each fish)
-    #--------------------------------------------------------
-    os.chdir(backup + '/Project/')
-    os.mkdir(fold1)
-    os.chdir(backup + '/Project' + os.sep + fold1)
-    os.mkdir(fold2)
-    os.chdir(backup + '/Project' + os.sep + fold1 + os.sep + fold2)
-    os.mkdir(fold3)
-    
-    #define subdirectories
-    #--------------------------------------------------------
-
-    p_id = savename[:savename.find('dpf')-1] + 'BLN-PTZ05-PTZ20_' + savename[savename.find('run'):] 
-    for i in range(1,10):
-        shutil.move(planes + '/' + fish + '_plane' + str(i) + '/suite2p/plane0'+ "/ops.npy", backup + 'Project/' + fold1 + os.sep + fold2 + os.sep + fold3 + os.sep + p_id + '_plane' + str(i) + '_ops.npy' )
-        shutil.move(planes + '/' + fish + '_plane' + str(i) + '/suite2p/plane0' + "/stat.npy", backup + 'Project/' + fold1 + os.sep + fold2 + os.sep + fold3 + os.sep + p_id + '_plane' + str(i) + '_stat.npy')
-        os.chdir(planes + '/' + fish + '_plane' + str(i) + '/suite2p/plane0' + '/reg_tif')
+        os.chdir(Fs2p + os.sep + 'plane0' + os.sep + 'reg_tif')
         tifs = sorted(glob.glob("*tif")) 
+        for i in range(0,10):
+            shutil.move(Fs2p + "/plane" + str(i) + "/ops.npy", backup + 'Project/' + fold1 + os.sep + fold2 + os.sep + fold3 + os.sep + p_id + '_plane' + str(i) + '_ops.npy' )
+            shutil.move(Fs2p + "/plane" + str(i) + "/stat.npy", backup + 'Project/' + fold1 + os.sep + fold2 + os.sep + fold3 + os.sep + p_id + '_plane' + str(i) + '_stat.npy')
+            for x in range(len(tifs)):
+                shutil.move(Fs2p + "/plane" + str(i) + os.sep + 'reg_tif' + os.sep + tifs[x], backup + 'Project/' + fold1 + os.sep + fold2 + os.sep + fold3 + os.sep + p_id + '_plane' + str(i) + '_reg' + tifs[x][4:7] + '.tif')
+            print('plane' + str(i) + ' backed up')
+
+        
+        
+        
+    elif mode == 'singleplane':        
+        import shutil
+
+        # Define backup path - Ftm or F10t
+        #---------------------------------------------------------------------------
+        os.chdir(Fs2p)
+
+        #define subdirectories
+        #--------------------------------------------------------
+        fold1 = experiment + '-' + fish[1:3] + '/'
+        fold2 = fish[fish.find(date[7:]) + 1 + len(date[7:]):fish.find('dpf') - 2] 
+        fold3 = fish[fish.find('se'):fish.find('se')+8] + fish[fish.find('dpf')-1:fish.find('dpf')+3]
+
+
+        if dir_mode == 'new':
+            os.chdir(backup + '/Project/')
+            os.mkdir(fold1)
+            os.chdir(backup + '/Project' + os.sep + fold1)
+            os.mkdir(fold2)
+            os.chdir(backup + '/Project' + os.sep + fold1 + os.sep + fold2)
+            os.mkdir(fold3)
+            
+        elif dir_mode == 'add_condition':
+            fold1 = fold1
+            fold2 = fold2
+            fold3 = fold3
+            
+        elif dir_mode == 'add_day':
+            os.chdir(backup + '/Project' + os.sep + fold1 + os.sep + fold2)
+            os.mkdir(fold3)
+        
+
+        p_id = experiment + '-' + fish[1:3] + '_' + fish[fish.find(date[7:]) + 1 + len(date[7:]):fish.find('dpf') - 2] + '_' + fish[fish.find('se'):fish.find('se')+8] + fish[fish.find('dpf')-1:fish.find('dpf')+3] + '_' + fish[fish.find(fish[1:3])+3:fish.find(date[7:])-1] + '_' + fish[fish.find('run'):fish.find('run')+6]
+
+
+        os.chdir(Fs2p + os.sep + 'plane0' + os.sep + 'reg_tif')
+        tifs = sorted(glob.glob("*tif")) 
+        i = 0
         for x in range(len(tifs)):
-            shutil.move(planes + '/' + fish + '_plane' + str(i) + '/suite2p/plane0' + '/reg_tif' + os.sep + tifs[x], backup + 'Project/' + fold1 + os.sep + fold2 + os.sep + fold3 + os.sep + p_id + '_plane' + str(i) + '_reg' + tifs[x][4:7] + '.tif')
+            shutil.move(Fs2p + "/plane" + str(i) + os.sep + 'reg_tif' + os.sep + tifs[x], backup + 'Project/' + fold1 + os.sep + fold2 + os.sep + fold3 + os.sep + p_id + '_plane' + str(i) + '_reg' + tifs[x][4:7] + '.tif')
         print('plane' + str(i) + ' backed up')
         
-        
+
         
 #========================================================================
 def fish_save(experiment, Fcoord, trace, coord, mxmin, Ftrace, Fdrop, thresh):  

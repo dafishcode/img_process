@@ -2,14 +2,15 @@
 
 import numpy as np
 from skimage import io
-from skimage.external.tifffile import imread, TiffFile
+from skimage.io import imread
+#from skimage.external.tifffile import imread, TiffFile
 import os
 import glob
 
 
 
 #paths
-datapath = "/Volumes/Dominic 10tb/Data2process/Project/PTZ-WILDTYPE/200123-WILDTYPE/"
+datapath = "/Volumes/Dominic 10tb/Data2process/Project/BLNLIGHTPTZ-FOXG1++/201207-FOXG1++/"
 os.chdir(datapath)   #set current directory to datapath
 tifs = sorted(glob.glob("*tif"))  
 
