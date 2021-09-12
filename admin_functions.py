@@ -1,3 +1,4 @@
+import avalanches as crfn
 
 
 #SORT
@@ -94,7 +95,7 @@ def mean_distribution(distlist): #Generate mean distribution
     for i in range(len(distlist)):
         comb_vec = np.append(comb_vec, distlist[i])
     av = np.unique(comb_vec, return_counts=True)[0]
-    freq = (np.unique(comb_vec, return_counts=True)[1]/50).astype(int)
+    freq = (np.unique(comb_vec, return_counts=True)[1]).astype(int)//len(distlist)
     mean_vec = []
     for e in range(freq.shape[0]):
         mean_vec = np.append(mean_vec, np.full(freq[e],av[e]))
@@ -115,7 +116,7 @@ def parallel_func(cores, savepath, iter_list, func, param_list, name, variables,
     name = filename for saving, should be unique if mode = save_group
     variables = list containing name endings for each variable, if function returns multiple
     mode = output type:
-        save_single - saves each instance of function output individually
+        save_single - saves each variable of function output individually
         save_group - saves all batched function outputs in a list
         NA - returns all batched function outputs in a list, without saving
     """
@@ -172,7 +173,7 @@ def parallel_class(cores, savepath, iter_list, func, param_list, name, variables
     name = filename for saving, should be unique if mode = save_group
     variables = list containing name endings for each variable, if function returns multiple
     mode = output type:
-        save_single - saves each instance of function output individually
+        save_single - saves each variable of function output individually
         save_group - saves all batched function outputs in a list
         NA - returns all batched function outputs in a list, without saving
     """
@@ -192,12 +193,18 @@ def parallel_class(cores, savepath, iter_list, func, param_list, name, variables
             count+=1
         batch_list[i] = pool.starmap(func, cores_inputs) #pool process on each core
         
+        
+
+        
         if mode == 'save_single':
+            import scipy.sparse
             for t in range(cores):  #loop through each core in current loop
                 for s in range(len(variables)):
                     save_var = batch_list[i][t].__dict__[variables[s]] #function output for current core in current batch
                     save_name = name + '-' + str(cores_inputs[t][0]) + '-' + variables[s] #save name based on iterable parameter
-                    np.save(savepath + save_name, save_var)
+                    sparse_matrix = scipy.sparse.csc_matrix(save_var)
+                    scipy.sparse.save_npz(savepath + save_name, sparse_matrix)
+                    #np.save(savepath + save_name, save_var)
 
     if mode != 'save_single':
     

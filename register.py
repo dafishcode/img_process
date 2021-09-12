@@ -236,6 +236,10 @@ def reg_label(fixed, moving, label, atlaslab, coord, trace, dff, bind, meanimgli
     
         #Perform registration of fish image to atlas image
         warp_img = ants.registration(fixed, moving, type_of_transform = reg_type) 
+        
+        #Inspect registration
+        fishplot(fixed,warp_img['warpedmovout'], orient = 'axial', al = 0.7)
+        
         rot_coords, to_del = rotate_coords(coord, meanimglist)
     
         
@@ -355,31 +359,30 @@ def reg_label(fixed, moving, label, atlaslab, coord, trace, dff, bind, meanimgli
             n_cells = 5
             for i in range(n_cells):
                 choose = random.randint(1,len(old_points)+1)
+                if sum(choose == loc) == 0:
+                    to_min = sum(choose >= loc)
+                    old_val = choose
+                    new_val = old_val - to_min
+                    old_trace = trace[old_val]
+                    new_trace = fin_trace[new_val]
+                    print(old_val)
+                    fig,axarr = plt.subplots(figsize = (8,1))
+                    plt.plot(old_trace, c = 'green')
+                    plt.show()
+                    print(new_val)
+                    fig,axarr = plt.subplots(figsize = (8,1))
+                    plt.plot(new_trace, c = 'orangered')
+                    plt.show()
 
-                to_min = sum(choose >= loc)
-                old_val = choose
-                new_val = old_val - to_min
-                old_trace = trace[old_val]
-                new_trace = fin_trace[new_val]
-                print(old_val)
-                fig,axarr = plt.subplots(figsize = (8,1))
-                plt.plot(old_trace, c = 'green')
-                plt.show()
-                print(new_val)
-                fig,axarr = plt.subplots(figsize = (8,1))
-                plt.plot(new_trace, c = 'orangered')
-                plt.show()
 
+                    fig,axarr = plt.subplots(1,2,figsize = (10,7))
+                    axarr[0].scatter(old_points[:,0],old_points[:,1], s = 2, c = 'k', alpha = 0.1)
+                    axarr[1].matshow(fixed[:,:,xnum])
+                    axarr[1].scatter(fin_coord[:,0],fin_coord[:,1], s = 2, alpha = 0.1, c = 'k')
+                    axarr[0].scatter(old_points[:,0][old_val],old_points[:,1][old_val], s = 40, c = 'green', alpha = 1)
+                    axarr[1].scatter(fin_coord[:,0][new_val],fin_coord[:,1][new_val], s = 20, c = 'orangered',alpha = 1)
+                    plt.show()
 
-                fig,axarr = plt.subplots(1,2,figsize = (10,7))
-                axarr[0].scatter(old_points[:,0],old_points[:,1], s = 2, c = 'k', alpha = 0.1)
-                axarr[1].matshow(fixed[:,:,xnum])
-                axarr[1].scatter(fin_coord[:,0],fin_coord[:,1], s = 2, alpha = 0.1, c = 'k')
-                axarr[0].scatter(old_points[:,0][old_val],old_points[:,1][old_val], s = 40, c = 'green', alpha = 1)
-                axarr[1].scatter(fin_coord[:,0][new_val],fin_coord[:,1][new_val], s = 20, c = 'orangered',alpha = 1)
-                plt.show()
-
-                
                 
             #Check that all neurons are overlaid correctly over brain - postregistration
             xnum = 150

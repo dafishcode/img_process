@@ -10,7 +10,9 @@ import glob
 
 
 #paths
-datapath = "/Volumes/Dominic 10tb/Data2process/Project/BLNLIGHTPTZ-FOXG1++/201207-FOXG1++/"
+
+
+datapath = "/Volumes/Dominic 10tb2/Data2process/Project/BLNLIGHTPTZ-FOXG1/210518-FOXG1/"
 os.chdir(datapath)   #set current directory to datapath
 tifs = sorted(glob.glob("*tif"))  
 
@@ -40,3 +42,4 @@ for i in range(len(tifs)):    #loop through number of files in tifs folder
      #i loops through 1 to max number of files - i is then an argument for
      #tif, becoming the ith value of tifs - can then loop through these
      #files with a loop running rithin each frame in each file
+     
