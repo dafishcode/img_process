@@ -1,12 +1,49 @@
-import avalanches as crfn
-
-
 #SORT
 #=============================
 #=============================
+
+#=========================================
+def return_files(path, experiment, search):
+#=========================================
+
+    """
+    Return list of files in defined path, and changes current working directory to path containing desired files
+    
+    Inputs:
+    path (string): name of parent path
+    experiment (string): name of experiment folder 
+    search (string): words that files must contain
+    
+    Returns:
+    data_list (list): list containing all files of interest
+    
+    """
+
+    import os
+    import glob
+    os.chdir(path + experiment)
+    data_list = sorted(glob.glob(search))
+    return(data_list)
+
+
 #=============================
-def name_zero(pad, start, end, step): #add 0 to string of number - for saving 
+def name_zero(pad, start, end, step): 
 #=============================
+    """
+    Adds zero to front or back of a list of numbers - useful for saving filenames with numbers
+    
+    Inputs:
+    pad (string): 'front' or 'back'
+    start (int): number to start from
+    end (int): number to end wtih
+    step (int): stepsize
+    
+    Returns:
+    listme (list): a list of strings with 0s appended
+    
+    """
+    
+    
     import os 
     import numpy as np
     
@@ -15,9 +52,9 @@ def name_zero(pad, start, end, step): #add 0 to string of number - for saving
         listme = list(range(start, end+1, step))
         for i in range(start, end+1, step):
             if i < 10:
-                num = '0' + str(i)
+                num = '0' + str(i) #add 0 to front if integer value less than 10
             elif i >9:
-                num = str(i)
+                num = str(i) #else do not add 0
             listme[count] = num
             count+=1
         return(listme)
@@ -39,36 +76,21 @@ def name_zero(pad, start, end, step): #add 0 to string of number - for saving
             count+=1
         return(listme)
 
-
 #=============================
-def name_list(path, experiment, num, string): #return name list
-#=============================
-    import os 
-    import glob
-    os.chdir(path + 'Project/' + experiment)
-    if num < 10:
-        out = '0' + str(num)
-    elif num >9:
-        out = str(num)
-    return(sorted(glob.glob('*E-' + str(out) + string)))
-
-#=============================
-def name_template(namelist, mode): #return name list
-#=============================
-    if mode == 'short':
-        temp = namelist[0][:namelist[0].find('run')+6] 
+def repeat_list(name, length): 
+#=============================  
+    """
+    Creates list of the same string repeated n times
     
-    if mode == 'long':
-        temp = namelist[0][:namelist[0].find('.npy')-3] 
-        
-    if mode == 'param':
-        temp = namelist[0][:namelist[0].find('run')+12] + 'bin'  + namelist[1][namelist[1].find('run')+7:namelist[1].find('run')+14]
-        
-    return(temp)
-
-#=============================
-def repeat_list(name, length): #make list of same name repeated for given length
-#=============================    
+    Inputs:
+    name (string): string to repeat
+    length (int): length of list
+    
+    Returns:
+    itlist (list): a list of repeated string
+    
+    """
+    
     itlist = list(range(length))
     for i in range(len(itlist)):
         itlist[i] = name
@@ -76,38 +98,73 @@ def repeat_list(name, length): #make list of same name repeated for given length
 
 
 #==============================
-def save_name(i, name_li): #find save name
+def save_name(name): 
 #===============================
-    return(name_li[i][:name_li[i].find('run')+6])
+    """
+    Creates name template for saving - requires standardised input format
+    
+    Inputs:
+    name (string): full input string
+    
+    Returns:
+    (string): name template
+    
+    """
 
-#==============================
-def list_of_list(rows, cols): #expects a list of lists
-#===============================
-    listoflist = [[[] for i in range(cols)] for j in range(rows)]
-    return(listoflist)
-
-
-#=======================================================================
-def mean_distribution(distlist): #Generate mean distribution 
-#=======================================================================
-    import numpy as np
-    comb_vec = []
-    for i in range(len(distlist)):
-        comb_vec = np.append(comb_vec, distlist[i])
-    av = np.unique(comb_vec, return_counts=True)[0]
-    freq = (np.unique(comb_vec, return_counts=True)[1]).astype(int)//len(distlist)
-    mean_vec = []
-    for e in range(freq.shape[0]):
-        mean_vec = np.append(mean_vec, np.full(freq[e],av[e]))
-    return(mean_vec)
+    return(name[:name.find('run')+6])
 
 
 #PROCESS
 #=============================
+#==============================
+
+#============================================
+def save_shared_files(path, son_path, mode):
+#============================================
+    """
+    Saves shared modules across different repositories
+    
+    Inputs:
+    path (string): name of parent path
+    son_path (string): name of code folder 
+    mode (string): define which file to save: 'admin' or 'criticality'
+    
+    """
+
+    import os
+    from shutil import copyfile
+    
+    def loop_dir(file_list, path_list):
+        """
+        Loop between directories and save file in all but current 
+
+        """
+
+        #Loop through files and directories
+        for x in file_list:
+            for e,i in enumerate(path_list):
+                if path_list[e] not in os. getcwd() and not path_list[e].startswith('.'): #skip current directory
+                    copyfile(x, path + i + os.sep + x) #copy and overwrite files in directory
+
+    if mode == 'admin':
+        file_list = return_files(path , son_path, 'admin_functions.py' ) #search for admin file in current directory
+        path_list = os.listdir(path) #get names of all directories
+
+
+    elif mode == 'criticality':
+        file_list = [return_files(path , son_path, 'avalanches.py')[0], return_files(path , son_path, 'IS.py')[0]]  #search for admin file in current directory
+        path_list = ['criticality', 'spiking_network_criticality', 'zebrafish_mutant_analysis'] #CHANGE AS NEEDED!
+
+    loop_dir(file_list, path_list) 
+
+
 #=====================================================================
 def parallel_func(cores, savepath, iter_list, func, param_list, name, variables, mode): 
 #=====================================================================
-    """This function allows parallel pooling of processes using functions
+    """
+    This function allows parallel pooling of processes using functions
+    
+    Inputs:
     cores = number of cores 
     savepath = path for saving
     iter_list = list with parameter inputs that you will parallel process (inputs must be at start of function)
@@ -165,6 +222,8 @@ def parallel_func(cores, savepath, iter_list, func, param_list, name, variables,
 def parallel_class(cores, savepath, iter_list, func, param_list, name, variables, mode): 
 #=====================================================================
     """This function allows parallel pooling of processes using classes
+    
+    Inputs:
     cores = number of cores 
     savepath = path for saving
     iter_list = list with parameter inputs that you will parallel process (inputs must be at start of function)
@@ -241,17 +300,19 @@ def parallel_class(cores, savepath, iter_list, func, param_list, name, variables
         
         else:
             return(return_me)
-        
-
+    
         
 #=======================================================================================        
 def timeprint(per, r, numrows, name):
 #=======================================================================================
-    """ Print current time step every percentile
-        per = how often you want to print (as percintiles)
-        r = current iterator value
-        numrows = total number of steps
-        name = name to output
+    """ 
+    Print current time step every percentile
+    
+    Inputs:
+    per = how often you want to print (as percentiles)
+    r = current iterator value
+    numrows = total number of steps
+    name = name to output
     """
     if r % round((per*numrows/100)) == 0: 
             print("Doing number " + str(r) + " of " + str(numrows) + " for " + name)
@@ -260,17 +321,20 @@ def timeprint(per, r, numrows, name):
 #MATHS
 #=============================
 #=============================
+
 #=======================================================================================
-def window(size, times): #make window of given size that is divisible of time series
+def window(size, times): #make window of given size that is divisible by time series
 #=======================================================================================
-    """Returns the window size that is the closest divisor of a timeseries to given input
+    """
+    Returns the window size that is the closest divisor of a timeseries to given input
+    
     Inputs:
-    size - ideal window size
-    times - overall trace shape
+    size (int): ideal window size
+    times(int): overall trace length
     
     Returns: 
-    size - window size that is divisible by trace (rounds up)
-    n_windows - number of windows that split up trace
+    size (int): window size that is divisible by trace (rounds up)
+    n_windows (int): number of windows that split up trace
     """
     for i in range(times):
         if times % size ==0:
@@ -279,45 +343,4 @@ def window(size, times): #make window of given size that is divisible of time se
             size+=1
     n_windows = int(times/size)
     return(size, n_windows)
-
-#=======================================================================================
-def ttest(mydf, label, variable, comp_list, mode):
-#=======================================================================================
-    from scipy import stats 
-    #Single comparison - label to compare to first element in list
-    if mode == 'single':
-        vals = list_of_list(len(comp_list)-1, 5)
-        sig = 0.05/(len(comp_list)-1)
-        base = comp_list[0]
-        for i in range(len(comp_list)-1):
-            vals[i][0], vals[i][1] = stats.ttest_rel(mydf[variable].where(mydf[label] == base).dropna(),mydf[variable].where(mydf[label] == comp_list[i+1]).dropna())[0],stats.ttest_rel(mydf[variable].where(mydf[label] == base).dropna(),mydf[variable].where(mydf[label] == comp_list[i+1]).dropna())[1]
-            vals[i][2] = sig
-            vals[i][4] = str(base) + ' - ' + str(comp_list[i+1])
-            if vals[i][1] < sig:
-                vals[i][3] = 'Significant'
-            else:
-                vals[i][3] = 'Not significant'
-    
-    
-    if mode == 'multiple':
-        vals = list(range(len(comp_list)))
-        ncomp = 0
-        for i in range(len(comp_list)):
-            ncomp+= (len(comp_list)-1) - i
-        sig = 0.05/ncomp
-        
-        for i in range(len(comp_list)):
-            subval = list_of_list(len(comp_list), 5)
-            for e in range(len(comp_list)):
-                subval[e][0], subval[e][1] = stats.ttest_rel(mydf[variable].where(mydf[label] == comp_list[i]).dropna(),mydf[variable].where(mydf[label] == comp_list[e]).dropna())[0],stats.ttest_rel(mydf[variable].where(mydf[label] == comp_list[i]).dropna(),mydf[variable].where(mydf[label] == comp_list[e]).dropna())[1]
-                subval[e][2] = sig
-                subval[e][4] = str(comp_list[i]) + ' - ' + str(comp_list[e])
-                if subval[e][1] < sig:
-                    subval[e][3] = 'Significant'
-                else:
-                    subval[e][3] = 'Not significant'
-            vals[i] = subval
-    
-    
-    return(vals)
 
