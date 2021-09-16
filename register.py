@@ -1,4 +1,4 @@
-import admin_functions1 as adfn
+import admin_functions as adfn
 import ants
 
 
@@ -6,188 +6,175 @@ import ants
 #--------------
 #---------------
 #===============================================================================
-def rotate(Freg, opslist,degree): #rotate all images into correct orientation for registration
+def rotate(Freg, ops_list,degree): 
 #===============================================================================
+    """
+    This function rotates mean images in a stack to the defined orientation for registration and plots the outcome. 
+    
+    Inputs:
+    Freg (str): Path to mean image stack
+    ops_list (list): list of ops files for each plane, each containing the mean image stack for a plane
+    degree (int): angle of rotation
+    
+    Returns:
+    rotimg_list (list): list containing rotated mean image for each plane
+    
+    """
+    
     import matplotlib.pyplot as plt
     import numpy as np
     from scipy import ndimage
     
-    rotimglist = list(range(len(opslist)))
+    rotimg_list = list(range(len(ops_list)))
 
     f, axarr = plt.subplots(2,5, sharey = True, sharex = True, figsize = (40,30))
     axarr = axarr.flatten()
-    for i in range(len(opslist)):
-        ops = np.load(Freg + opslist[i], allow_pickle=True)
+    for i in range(len(ops_list)): #Loop through each plane
+        ops = np.load(Freg + ops_list[i], allow_pickle=True)
         ops = ops[()]
-        raw = ops['meanImg']
-        rotated_img = ndimage.rotate(raw, degree, reshape=False)
-        rotimglist[i] = rotated_img
+        raw = ops['meanImg'] #Load mean image
+        rotated_img = ndimage.rotate(raw, degree, reshape=False) #Apply rotation
+        rotimg_list[i] = rotated_img #Add each rotated image to list
         axarr[i].matshow(rotated_img)
     
     f.tight_layout()
     plt.show()
 
-    return rotimglist
+    return rotimg_list
+
 
 #===============================================================================
-def rotate_point(origin, point, angle): #rotate all images into correct orientation for registration
+def load_prereg(experiment, file, modality, condition, prefix, disk, Fdata):
 #===============================================================================
-    import math
-    import numpy as np
-    angle = np.radians(angle)
-    dot1 = origin[0] + math.cos(angle) * (point[0] - origin[0]) - math.sin(angle) * (point[1] - origin[1])
-    dot2 = origin[1] + math.sin(angle) * (point[0] - origin[0]) + math.cos(angle) * (point[1] - origin[1])
-    return(dot1,dot2)
-
-#===============================================================================
-def fishspec(Fdata, prefx = ''):
-#===============================================================================
-    import os
-    import re
+    """
+    This function loads prereg data in ants and also loads trace and coord data, and plots output.
     
-    if prefx: prefx = '^' + prefx + '.*' 
-    names = os.listdir(Fdata)
-    r     = re.compile(prefx + 'ZFRR.*')
-    folds = list(filter(r.match, names))
- 
-    Zfish = []
-    for f in folds:
-        cfld = next(os.walk(Fdata + os.sep + f))[1]
-        Cond = []
-        for c in cfld:
-            Tpaths = []
-            tifs = os.listdir(Fdata + os.sep + f + os.sep + c)
-            r    = re.compile('^.*[tif|tiff|TIF|TIFF]$')
-            tifs = list(filter(r.match, tifs))
-            Tpaths = []
-            for t in tifs:
-                Tpaths.append(Fdata + os.sep + f + os.sep + c + os.sep + t)
-                
-            Cond.append({'Name':c, 
-                         'Path':Fdata + os.sep + f + os.sep + c, 
-                         'Tifs':tifs,
-                         'Tpaths':Tpaths})
+    Inputs:
+    experiment (str): experiment subfolder name
+    file (str): fish name
+    modality (str): imaging modality
+    condition (str): imaging condition
+    prefix (str): genotype, if None no genotype, if 'Yes' genotype is added
+    disk (str): path to mean images
+    Fdata (str): path to trace and coords data
+    
+    Returns:
+    f (ants image): image stack to register
+    Fish (dict): dictionary containing cell and trace data
+    meanimg_fold (list): list containing the folder with the image tif
+    """
+    
+    import numpy as np
+    import os
+
+    #Find fish image
+    #--------------------------------------------------------
+    img_type= adfn.return_files(disk + 'Project/', file + os.sep + modality + os.sep, '**')[0]
+    meanimg_fold = adfn.return_files(disk + 'Project/', file + os.sep + modality + os.sep + img_type , '*' + condition + '*meanimgstack*')
+    num = meanimg_fold[0][meanimg_fold[0].find(modality)-3:meanimg_fold[0].find(modality)-1]
+    dpf = meanimg_fold[0][meanimg_fold[0].find('dpf')-1:meanimg_fold[0].find('dpf')+3]
+    
+    if prefix == 'Yes':
+        pref = file[file.find(modality)-4:file[0].find(modality)-2]
+        
+    else:
+        pref = ''
+
+    #Find coords and trace files
+    #--------------------------------------------------------
+    name_list = ['*_realcoord.npy', '*_realtrace.npy', '*_binarised.npy', '*_deltaff.npy']
+    dict_list = ['coord', 'trace', 'bind', 'dff']
+    Fish = {}
+    def grab(Fdata, experiment, condition, pref, number, age, name):
+        out = adfn.return_files(Fdata, experiment, '*' + experiment + pref + '-' + number + '*' + age + '*' + condition + name )
+        if len(out) > 1:
+            print('More than one file found - check list length')
+            return()
+
+        if len(out) < 1:
+            print('No files found found - check list length')
+            return()
+        return(out)
             
-        Zfish.append({'Cond':Cond, 'Name':f[len(prefx)-2:]})
-    
-    return Zfish
-
-#===============================================================================
-def meancalc(imgs, Fimg, noimages = 100, delfirst = True, crop = False, doplot = True):
-#===============================================================================
-    import numpy as np
-    import ants
-    import os
-
-    print('I found ' + str(len(imgs)) + ' images')
-
-    # Load subsection of tifs
+    for i, nom in enumerate(name_list):
+        Fish.update({dict_list[i]: np.load(grab(Fdata, experiment, condition, pref, num, dpf, nom)[0])})
+        
+    # Visualise fish
     #---------------------------------------------------------------------------
-    maxno   = np.min([len(imgs),noimages])
-    loadi   = np.linspace(0,len(imgs)-1,maxno)
-    loadi   = loadi.astype(int)
-    print('Of these I''m loading ' + str(maxno))
-    if delfirst: 
-        loadi = np.delete(loadi, 0)
-        print('I''m ignoring the first volume')
-        
-    # Load initial image for dimensions
-    #---------------------------------------------------------------------------
-    if type(imgs[0]) == str:     
-        templ = ants.image_read(Fimg + os.sep + imgs[0])
-   
-    elif type(imgs[0]) == ants.core.ants_image.ANTsImage:                        
-        templ = imgs[0]
-
-    if crop:    
-        templ = ants.crop_indices(templ, [0,0,1], templ.shape)
+    f = ants.image_read(disk + 'Project/' + file + os.sep + modality +os.sep + img_type + os.sep + meanimg_fold[0])
+    f.set_spacing([.3, .3, 15.])
+    f.set_direction(np.array([[-1.,0.,0.],[0.,1.,0.],[0.,0.,1.]])) 
+    ants.plot(f, axis = 2, nslices = 5, slices = np.arange(0, 5, 1), figsize = 10)
     
-    mean_arr    = np.multiply(templ.numpy(), 0);
-    imglist     = []
+    savename = adfn.save_name(grab(Fdata, experiment, condition, pref, num, dpf, nom)[0])
     
-    for i in loadi:
-        
-        if type(imgs[0]) == str:     
-            img = ants.image_read(Fimg + os.sep + imgs[i])
-        elif type(imgs[0]) == ants.core.ants_image.ANTsImage:                        
-            img = imgs[i]  
-        if crop:    img = ants.crop_indices(img, [0,0,1], img.shape)
+    return(f, Fish, meanimg_fold, savename)
 
-        mean_arr    = mean_arr + img.numpy() / maxno
-        imglist.append(img)
 
-    mimg = ants.from_numpy(mean_arr)
-    if doplot: ants.plot(mimg, axis=2, slices = range(8), figsize=3)
-    
-    return mimg, imglist
-        
+
 #===============================================================================
-def pointtrans(Fish, F):
+def rotate_coords(xyz, meanimg_list):
 #===============================================================================
-    import os
-    import ants
-    import pandas as pd
+    """
+    This applies the rotation already applied to the image, to the cell coordinates.
+    
+    Inputs:
+    xyz (np array): X x Y x Z coordinates of cells
+    meanimg_list (list): list of mean images
+    
+    Returns:
+    rot_stack (np array): X x Y x Z coordinates of rotated cells
+    to_del (np array): 1d vector of cell indeces that are outside image
+    """
+    
     import numpy as np
     
-    # Apply registration to the CMN identified cells
-    #---------------------------------------------------------------------------
-    for c in range(len(Fish["Cond"])):
-        print('Transforming points to standard space for condition ' + str(c+1))
-        Freg   = F["Freg"] + os.sep + Fish["Name"] + os.sep + Fish["Cond"][c]["Name"]
-        Ff2cf  = Freg + os.sep + 'FUN2CF'
-        os.listdir(Ff2cf)
-
-        cs = pd.DataFrame(Fish["Cond"][c]["Pixels"])
-        cs.columns = ['x', 'y', 'z'] 
-        tcs = np.multiply(cs, (.3,.3,15))
-
-        ncs = ants.apply_transforms_to_points(3, tcs, \
-                                       [ Ff2cf +os.sep+ 'cf2fun_R.mat', 
-                                         Ff2cf +os.sep+ 'cf2fun_S.mat', 
-                                         Ff2cf +os.sep+ 'cf2fun_S.nii.gz'],  \
-                                       whichtoinvert = [True, True, False])
-
-        tcs = np.multiply(ncs, (1,1,1))
-        nncs = ants.apply_transforms_to_points(3, tcs, \
-                                        [ F["Ftrans"] +os.sep+ 'ref2cf_R.mat', 
-                                          F["Ftrans"] +os.sep+ 'ref2cf_S.mat', 
-                                          F["Ftrans"] +os.sep+ 'ref2cf_S.nii.gz'], \
-                                        whichtoinvert = [True,True,False]) 
-        
-        Fish["Cond"][c]["ZBBCoord"] = nncs.values
+    def rotate_point(origin, point, angle): 
+        import math
+        angle = np.radians(angle)
+        x = origin[0] + math.cos(angle) * (point[0] - origin[0]) - math.sin(angle) * (point[1] - origin[1])
+        y = origin[1] + math.sin(angle) * (point[0] - origin[0]) + math.cos(angle) * (point[1] - origin[1])
+        return(x,y)
     
-    return Fish
-
-
-
-def rotate_coords(xyz, meanimglist):
-    import numpy as np
-    
-    #Apply same rotation onto points onto image
     origin = 512/2,512/2
-    angle = int(meanimglist[0][meanimglist[0].find('stack')+6:meanimglist[0].find('deg')])
-    dotproduct = np.zeros((xyz.shape[0], 2))
+    angle = int(meanimg_list[0][meanimg_list[0].find('stack')+6:meanimg_list[0].find('deg')]) #Find angle of rotation in file name
+    rot = np.zeros((xyz.shape[0], 2))
     for i in range(xyz.shape[0]):
-        dotproduct[i] = rotate_point(origin,xyz[i,:2], angle)
+        rot[i] = rotate_point(origin,xyz[i,:2], angle) #Apply rotation to points
 
-    dp = np.column_stack((dotproduct, xyz[:,2]))
-    dp = dp.astype(int)
-    mult = dp[:,0]*dp[:,1]
+    #Remove any neurons that fall outside of image due to squaring procedure
+    rot_stack = np.column_stack((rot, xyz[:,2]))
+    rot_stack = rot_stack.astype(int)
+    mult = rot_stack[:,0]*rot_stack[:,1]
     zer = np.where(mult <= 0 )
-    out_x = np.where(dp[:,0] > 511)
-    out_y = np.where(dp[:,1] > 511)
+    out_x = np.where(rot_stack[:,0] > 511)
+    out_y = np.where(rot_stack[:,1] > 511)
     comb = []
-    comb = np.append(zer, np.append(out_x, out_y))
-    dp[comb] = 0
-    return(dp,comb)
+    comb = np.append(zer, np.append(out_x, out_y)) #Neurons outside of image
+    rot_stack[comb] = 0
+    return(rot_stack, comb)
 
 
+        #Build coordinate image from pixel coordinates in ants space
 
+#===============================================================================
 def lab_Img(ant_img, coords, to_del):
+#===============================================================================
+    """
+    This function builds a coordinate image from the pixel coordinates in ants space. 
+    
+    Inputs:
+    ant_img (ants image): pre-registered, rotated ants image
+    coords (np array): X x Y x Z coordinates of rotated cells
+    to_del (np array): 1d vector of cell indeces that are outside image
+    
+    Returns:
+    lab_img (ants image): ants image with each pixel labelled by cell number
+    """
+    
     import numpy as np
 
     #Create labelled image from preregistered image
-    
     lab_img = ant_img*0
     
     #This will create an image of the xy coordinates in the same space as the input ants image
@@ -200,7 +187,23 @@ def lab_Img(ant_img, coords, to_del):
     return(lab_img)
 
 
+
+
+#===============================================================================
 def match_pix2cells(pre_coord, warp_coord_img):
+#===============================================================================
+    """
+    This function maps new pixel coordinates onto original cells. 
+    
+    Inputs:
+    pre_coord (np array):  X x Y x Z coordinates of rotated cells pre registration
+    warp_coord_img (ants image): ants image with each pixel labelled by cell number
+    
+    Returns:
+    reg_coord (ants image):  X x Y x Z coordinates of cells post registration,
+    """
+
+
     import numpy as np
 
     reg_coord = np.zeros((pre_coord.shape[0],3))
@@ -221,7 +224,22 @@ def match_pix2cells(pre_coord, warp_coord_img):
     return(reg_coord)
 
 
+#===============================================================================
 def reg_label(fixed, moving, label, atlaslab, coord, trace, dff, bind, meanimglist, reg_type, mode):
+#===============================================================================
+    """
+    This function builds a coordinate image from the pixel coordinates in ants space. 
+    
+    Inputs:
+    ant_img (ants image): pre-registered, rotated ants image
+    coords (np array): X x Y x Z coordinates of rotated cells
+    to_del (np array): 1d vector of cell indeces that are outside image
+    
+    Returns:
+    lab_img (ants image): ants image with each pixel labelled by cell number
+    """
+
+
     import numpy as np
     import matplotlib.pyplot as plt
     import random
@@ -240,18 +258,19 @@ def reg_label(fixed, moving, label, atlaslab, coord, trace, dff, bind, meanimgli
         #Inspect registration
         fishplot(fixed,warp_img['warpedmovout'], orient = 'axial', al = 0.7)
         
+        #Rotate coordinates
         rot_coords, to_del = rotate_coords(coord, meanimglist)
     
-        
         #Build coordinate image from pixel coordinates in ants space
         coord_img = lab_Img(moving,rot_coords, to_del)
             
         #Apply transformation to coordinate image
         warp_coord_img = ants.apply_transforms(fixed, coord_img, warp_img['fwdtransforms'], interpolator='nearestNeighbor')
+        
         #Map warped pixel coordinates to old pixel coordinates
         reg_coord = match_pix2cells(rot_coords, warp_coord_img)
         
-        #Create new matrices
+        #Create final coordinate and trace arrays - remove cells outside of image
         loc = np.where(reg_coord[:,0] == 0)[0]
         fin_coord = np.delete(reg_coord, loc, 0)
         fin_trace = np.delete(trace, loc, 0)
@@ -265,7 +284,8 @@ def reg_label(fixed, moving, label, atlaslab, coord, trace, dff, bind, meanimgli
         lab_xyz = (np.column_stack((new_x, new_y, new_z))).astype(int)
         coarse_reg = list(range(lab_xyz.shape[0]))
         gran_reg = list(range(lab_xyz.shape[0]))
-
+        
+        #Label each cell according to atlas labels
         for i in range(len(gran_reg)):
             curr_val = int(label[lab_xyz[i][1],lab_xyz[i][0],lab_xyz[i][2]]) #Transpose to match with label ants img
             gran_reg[i] = np.array(atlaslab[1])[curr_val]
@@ -273,8 +293,7 @@ def reg_label(fixed, moving, label, atlaslab, coord, trace, dff, bind, meanimgli
 
         lab_coord = np.column_stack((fin_coord, gran_reg, coarse_reg))
         
-        
-        
+        #Visualise ouputs
         if mode == 'check':
             print(meanimglist[0])
             print('Rotate suite2p coords onto pre-reg fish brain')
@@ -419,6 +438,129 @@ def reg_label(fixed, moving, label, atlaslab, coord, trace, dff, bind, meanimgli
                 
         return(fin_coord, lab_coord, fin_trace, fin_bind, fin_dff)
 
+    
+    
+
+
+#===============================================================================
+def fishspec(Fdata, prefx = ''):
+#===============================================================================
+    import os
+    import re
+    
+    if prefx: prefx = '^' + prefx + '.*' 
+    names = os.listdir(Fdata)
+    r     = re.compile(prefx + 'ZFRR.*')
+    folds = list(filter(r.match, names))
+ 
+    Zfish = []
+    for f in folds:
+        cfld = next(os.walk(Fdata + os.sep + f))[1]
+        Cond = []
+        for c in cfld:
+            Tpaths = []
+            tifs = os.listdir(Fdata + os.sep + f + os.sep + c)
+            r    = re.compile('^.*[tif|tiff|TIF|TIFF]$')
+            tifs = list(filter(r.match, tifs))
+            Tpaths = []
+            for t in tifs:
+                Tpaths.append(Fdata + os.sep + f + os.sep + c + os.sep + t)
+                
+            Cond.append({'Name':c, 
+                         'Path':Fdata + os.sep + f + os.sep + c, 
+                         'Tifs':tifs,
+                         'Tpaths':Tpaths})
+            
+        Zfish.append({'Cond':Cond, 'Name':f[len(prefx)-2:]})
+    
+    return Zfish
+
+#===============================================================================
+def meancalc(imgs, Fimg, noimages = 100, delfirst = True, crop = False, doplot = True):
+#===============================================================================
+    import numpy as np
+    import ants
+    import os
+
+    print('I found ' + str(len(imgs)) + ' images')
+
+    # Load subsection of tifs
+    #---------------------------------------------------------------------------
+    maxno   = np.min([len(imgs),noimages])
+    loadi   = np.linspace(0,len(imgs)-1,maxno)
+    loadi   = loadi.astype(int)
+    print('Of these I''m loading ' + str(maxno))
+    if delfirst: 
+        loadi = np.delete(loadi, 0)
+        print('I''m ignoring the first volume')
+        
+    # Load initial image for dimensions
+    #---------------------------------------------------------------------------
+    if type(imgs[0]) == str:     
+        templ = ants.image_read(Fimg + os.sep + imgs[0])
+   
+    elif type(imgs[0]) == ants.core.ants_image.ANTsImage:                        
+        templ = imgs[0]
+
+    if crop:    
+        templ = ants.crop_indices(templ, [0,0,1], templ.shape)
+    
+    mean_arr    = np.multiply(templ.numpy(), 0);
+    imglist     = []
+    
+    for i in loadi:
+        
+        if type(imgs[0]) == str:     
+            img = ants.image_read(Fimg + os.sep + imgs[i])
+        elif type(imgs[0]) == ants.core.ants_image.ANTsImage:                        
+            img = imgs[i]  
+        if crop:    img = ants.crop_indices(img, [0,0,1], img.shape)
+
+        mean_arr    = mean_arr + img.numpy() / maxno
+        imglist.append(img)
+
+    mimg = ants.from_numpy(mean_arr)
+    if doplot: ants.plot(mimg, axis=2, slices = range(8), figsize=3)
+    
+    return mimg, imglist
+        
+#===============================================================================
+def pointtrans(Fish, F):
+#===============================================================================
+    import os
+    import ants
+    import pandas as pd
+    import numpy as np
+    
+    # Apply registration to the CMN identified cells
+    #---------------------------------------------------------------------------
+    for c in range(len(Fish["Cond"])):
+        print('Transforming points to standard space for condition ' + str(c+1))
+        Freg   = F["Freg"] + os.sep + Fish["Name"] + os.sep + Fish["Cond"][c]["Name"]
+        Ff2cf  = Freg + os.sep + 'FUN2CF'
+        os.listdir(Ff2cf)
+
+        cs = pd.DataFrame(Fish["Cond"][c]["Pixels"])
+        cs.columns = ['x', 'y', 'z'] 
+        tcs = np.multiply(cs, (.3,.3,15))
+
+        ncs = ants.apply_transforms_to_points(3, tcs, \
+                                       [ Ff2cf +os.sep+ 'cf2fun_R.mat', 
+                                         Ff2cf +os.sep+ 'cf2fun_S.mat', 
+                                         Ff2cf +os.sep+ 'cf2fun_S.nii.gz'],  \
+                                       whichtoinvert = [True, True, False])
+
+        tcs = np.multiply(ncs, (1,1,1))
+        nncs = ants.apply_transforms_to_points(3, tcs, \
+                                        [ F["Ftrans"] +os.sep+ 'ref2cf_R.mat', 
+                                          F["Ftrans"] +os.sep+ 'ref2cf_S.mat', 
+                                          F["Ftrans"] +os.sep+ 'ref2cf_S.nii.gz'], \
+                                        whichtoinvert = [True,True,False]) 
+        
+        Fish["Cond"][c]["ZBBCoord"] = nncs.values
+    
+    return Fish
+
 
 #PLOT
 #--------------
@@ -426,7 +568,19 @@ def reg_label(fixed, moving, label, atlaslab, coord, trace, dff, bind, meanimgli
 #===============================================================================
 def fishplot(img, overl = '', orient = 'axial', sliceno = 20, al = .5, col = 'magma'):
 #===============================================================================
-    # N.B This breaks frequently - I have no idea what is wrong with the implementation
+
+    """
+    This function plots output of registration. 
+    
+    Inputs:
+    im (ants image): Atlas to plot
+    overl (ants image): warped image to overlay onto atlas
+    orient (str): plotting orientation
+    sliceno (int): number of slices to visualise
+    al (int): alpha
+    col (str): color map
+
+    """
     
     import ants
     import numpy as np
@@ -435,11 +589,6 @@ def fishplot(img, overl = '', orient = 'axial', sliceno = 20, al = .5, col = 'ma
     if   orient == 'coronal':     axs = 0; ri = 0
     elif orient == 'sagittal':    axs = 1; ri = 1
     elif orient == 'axial':       axs = 2; ri = 2 
-    
-    # ALERT ALERT I HAVE NO IDEA WHAT THE SLICE INDEXING WANTS FROM ME
-    # Does it live in the physical space?
-    # Does it live in the voxel space?
-    # I DON'T KNOW - so I'm fudging it
     
     sliceno = min([sliceno,r[ri]])
     
@@ -457,16 +606,30 @@ def fishplot(img, overl = '', orient = 'axial', sliceno = 20, al = .5, col = 'ma
 #--------------
 #---------------
 #===============================================================================
-def savemeanimg(Freg, opslist, Frotate, degree): #save mean image as hyperstack for registration
+def savemeanimg(Freg, ops_list, Frotate, degree): #save mean image as hyperstack for registration
 #===============================================================================
+    """
+    Save rotated mean image as hyperstack for registration. 
+    
+    Inputs:
+    Freg (str): Path to mean image stack
+    ops_list (list): list of ops files for each plane, each containing the mean image stack for a plane
+    Frotate (list): list containing rotated mean image for each plane
+    degree (int): angle of rotation
+    
+    Saves:
+    om_list (tif): a hyperstack of all images stacked together as a tif
+    
+    """
+
     import os
     from PIL import Image
-    omlist = []
+    om_list = []
 
     for i in range(len(Frotate)):
-        omlist.append(Image.fromarray(Frotate[i]))
-    omlist[0].save(Freg + os.sep + opslist[0][:opslist[0].find('run')+6] + "_meanimgstack" + "_" + str(degree) + "deg.tif", save_all=True,
-               append_images=omlist[1:])
+        om_list.append(Image.fromarray(Frotate[i]))
+    om_list[0].save(Freg + os.sep + ops_list[0][:ops_list[0].find('run')+6] + "_meanimgstack" + "_" + str(degree) + "deg.tif", save_all=True,
+               append_images=om_list[1:])
 
     
     
