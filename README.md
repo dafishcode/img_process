@@ -1,24 +1,39 @@
 # img_process
-This repo contains python code for pre-processing of image data. 
 
-Modules contain functions which extract, filter and register calcium imaging data. 
-Accompanying ipynotebooks demonstrate how to use the modules. 
 
-'admin_functions' - simple functions ordering and naming data.
+## What is this repo for?
+* the processing of preprocessed brain image data files for image registration
+* the extraction and processing of segmented suite2p cell traces and spatial coordinates
+* the extraction and processing of behavioural image data
 
-'plot' - plotting function for data processing visualisation
 
-'cellGUI' - widget to visualise individual neurons in TIFF recording - work in progress.
+## What does this repo contain?
+* Modules contain functions which for image processing and cell trace processing
+* Accompanying ipynotebooks demonstrate how to use the modules
 
-'order_functions' - functions for reading and splitting large tiffs into single tiffs
 
-'suite' - running suite2p from python
+### Modules
+'admin_functions.py' - useful administrative functions useful 
 
-'registration' - functions for applying image registration to images and points, using ants library. 
+'extract.py' - extracts suite2p segmented cells and runs pre-processing on it - this includes extraction and denoising of ca2+ data, binarisation with hidden markov model, and normalisation
 
-deeplabcut - runs convnet DLC to label tail data. 
+'order_functions.py' - functions for reading and splitting large tiffs into single tiffs
 
-'extract' - extracts suite2p data, and runs pre-processing on it - this includes extraction and denoising of ca2+ data, binarisation with hidden markov model, and normalisation. 
+'plot.py' - plotting functions for the visualisation of 
+
+'registration.py' - functions for applying image registration to images and points, using ants library
+
+
+### Notebooks
+
+'extract.ipynb' - extracting segmented cells and processing fluorescence traces
+
+'registration.ipynb' - register segmented cells to brain atlas and label neurons
+
+'suite.ipynb' - running suite2p from python
+
+'extract_tail_angle.ipynb' - extraction of tail segment positions and plotting 
+
 
 
 
