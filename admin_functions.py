@@ -114,6 +114,104 @@ def save_name(name):
     return(name[:name.find('run')+6])
 
 
+#=======================================================================================
+def comb_list(inp_list):
+#=======================================================================================
+
+    """
+    This function takes a series of lists and combines them into one list. 
+    
+    Inputs:
+        inp_list (list): input list
+        
+    Returns:
+        out_list (list): output list
+
+    """    
+
+    #Find total length
+    sumd=0
+    for i in range(len(inp_list)):
+        for e in inp_list[i]:
+            sumd+=1
+    
+
+    out_list = list(range(sumd))
+    count=0
+    for i in range(len(inp_list)):
+        for e in inp_list[i]:
+            out_list[count] = e
+            count+=1
+        
+    return(out_list)
+
+
+#=======================================================================================
+def cond_list(inp_list, cond_list, mode):
+#=======================================================================================
+
+    """
+    This function takes an input list and iterates over a condition list by some rule, to label the input list by its condition. 
+    
+    Inputs:
+        inp_list (list of lists): input list of lists
+        cond_list (list): condition list, e.g. colours, plotting styles, labels etc
+        mode (str): 'dataset' orders condition list by dataset, 'datapoint' orders the condition list by data point
+    Returns:
+        out_list (list): output list
+
+    """    
+    #check that cond_list is correct shape
+    if mode == 'dataset' and len(cond_list) != len(inp_list):
+        print('Number of colours does not match number of datasets')
+        return()
+    
+    if mode == 'datapoint' and len(cond_list) != len(comb_list(inp_list))/len(inp_list):
+        print('Number of colours does not match number of datapoints')
+        return()
+
+    #Find total length
+    sumd=0
+    for i in range(len(inp_list)):
+        for e in inp_list[i]:
+            sumd+=1
+    
+
+    out_list = list(range(sumd))
+    count=0
+    for i in range(len(inp_list)):
+        for e in range(len(inp_list[i])):
+            if mode == 'dataset':
+                out_list[count] = cond_list[i]
+                
+            elif mode == 'datapoint':
+                out_list[count] = cond_list[e]
+            count+=1
+        
+    return(out_list)
+
+
+#=======================================================================================
+def load_list(inp_list):
+#=======================================================================================
+    """
+    This function takes an input a list of file names and loads them into a list
+    
+    Inputs:
+        inp_list (list of strings): input list of files names
+
+    Returns:
+        out_list (list of np arrays): output list
+
+    """    
+    import numpy as np
+    
+    out_list = list(range(len(inp_list)))
+    for i in range(len(inp_list)):
+        out_list[i] = np.load(inp_list[i])
+    return(out_list)
+
+
 #PROCESS
 #=============================
 #==============================
@@ -344,3 +442,140 @@ def window(size, times): #make window of given size that is divisible by time se
     n_windows = int(times/size)
     return(size, n_windows)
 
+#=======================================================================================
+def mean_std(label, data):
+#=======================================================================================
+    """
+    Prints the mean and standard deviation.
+    
+    Inputs:
+    label (str): dataset label
+    data (np array/list/dataframe): row of data
+
+    """
+    import numpy as np
+    from scipy import stats
+    mean = np.mean(data)
+    sem = stats.sem(data)
+    print(label + " mean = " + str(mean) + '  , std = ' + str(sem))
+
+#=======================================================================================
+def stats_2samp(data1, data2, alpha, n_comp, mode):
+#=======================================================================================
+    """
+    Performs significance test on 2 sample data. 
+    
+    Inputs:
+    data1 (np array/list/dataframe): row of dataset 1
+    data2 (np array/list/dataframe): row of dataset 2
+    alpha (float): significant level
+    n_comp (int): number of comparisons
+    mode (str): 'ind' for independent samples, 'rel' for related samples
+
+    """
+
+    from scipy import stats
+    
+    def print_sig(t,p,a):
+        if p > a:
+            print('Samples are the same')
+        else:
+            print('Samples are significantly different')
+    
+    p1, p2 = stats.normaltest(data1)[1], stats.normaltest(data2)[1]
+    corrected_alpha = alpha/n_comp
+    
+    if p1 or p2 < alpha:
+        print('At least one sample is non-Gaussian - performing non-parametric test')
+        
+        if mode == 'ind':
+            U, p = stats.mannwhitneyu(data1, data2)
+            print_sig(U,p,corrected_alpha)
+            print('U = ' + str(U) +  '   p = ' + str(p))
+            
+        elif mode == 'rel':
+            w, p = stats.wilcoxon(data1, data2)
+            print_sig(w,p,corrected_alpha)
+            print('w = ' + str(w) +  '   p = ' + str(p))
+            
+    else:
+        print('Both samples are Gaussian - performing parametric test')
+    
+        if mode == 'ind':
+            t, p = stats.ttest_ind(data1, data2)
+            print_sig(t,p,corrected_alpha)
+            
+        elif mode == 'rel':
+            t, p = stats.ttest_rel(data1, data2)
+            print_sig(t,p,corrected_alpha)
+            
+        print('t = ' + str(t) +  '   p = ' + str(p))
+
+
+#PLOT
+#=============================
+#=============================
+
+#=======================================================================================
+def multi_plot(data_list, col_list, plot_type, size, rows, cols): 
+#=======================================================================================
+    """
+    Matplotlib confuses me - this function allows me to build a subplot frame without having to remember how to use matplotlib. 
+    
+    Inputs:
+    data_list(list): list of data to plot, must match the method type
+    plot_type (str): must be a method available to plot
+    size (tuple): fig size
+    rows (int): number of rows
+    cols (int): number of columns
+    col_list (list): list of colors for plotting
+
+    """
+    from matplotlib import pyplot as plt
+    
+    plt.figure(figsize = size)
+    
+    for i in range(len(data_list)):
+        plt.subplot(rows, cols, i + 1)
+        plot = getattr(plt, plot_type)(data_list[i], color = col_list[i]) 
+    plt.show()
+        
+        
+#=======================================================================================     
+def bar_scatter_plot(dic, data_name, fig_size, bar_size, dot_size, mean_colours, colours):
+#=======================================================================================
+    """
+    Plot a bar and scatter plot with mean and individual data points. 
+    
+    Inputs:
+        dic (dict): dictionary of data points
+        data_name (str): data name in dictionary
+        fig_size (tuple): figure size
+        bar_size (float): size of mean bar
+        dot_size (float): size of dot
+        mean_colors (list): color of bars
+        colours (list): colors of data points
+
+    """
+    from matplotlib import pyplot as plt
+    import seaborn as sns
+    from matplotlib.collections import PathCollection
+    from matplotlib import cm
+    sns.set(style="white")
+    
+    
+
+    fig, ax = plt.subplots(figsize = fig_size)
+    ax = sns.pointplot(x="condition", y=data_name, data = dic, hue = 'condition', palette = mean_colours, join=True, ci=0, scale=bar_size, markers = '_')
+    for artist in ax.lines:
+        artist.set_zorder(10)
+    for artist in ax.findobj(PathCollection):
+        artist.set_zorder(11)
+    ax = sns.stripplot(x="condition", y=data_name, data = dic,hue = 'subject', palette = colours, size = dot_size, jitter = True ,alpha = 1)
+
+    plt.yticks(size = 20)
+    points = ax.collections
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.legend_.remove()
+    plt.show()

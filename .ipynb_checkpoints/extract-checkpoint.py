@@ -370,22 +370,13 @@ def bcl_function_parameters(wdt, savepath, experiment, name, data, lamb, varB, v
     
         for i in rdm:
             trace = data[i]
-            C, sks, B, y = bcl_model(wdt, trace, lamb, varB, varC, Cmean, frequency, gausfilt)
-            
-            
-            #plt.figure(figsize = (25,3))
-            #plt.plot(y) #normalised, filtered trace
-            #plt.plot(c) #modelled calcium
-            #plt.plot(B) #modelled baseline
-            #plt.plot(sks) #binary spikes
-            #plt.show()    
+            C, sks, B, y = bcl_model(wdt, trace, lamb, varB, varC, Cmean, frequency, gausfilt) 
         
-            
-            plt.figure(figsize = (100,8))    
-            y = gaussian_filter1d(y, 0.8, axis = 0)
-            plt.plot(y, c = 'deepskyblue', linewidth = 11)
-            for x in np.where(sks[:4000] == 1)[0]: plt.vlines(x=x,  alpha = 1, ymin = -8, ymax = -2, color = 'red', linewidth = 2)
-            plt.ylim(-8,35)
+            ind = 2000
+            plt.figure(figsize = (40,4))    
+            plt.plot(y[:ind], c = 'deepskyblue', linewidth = 7)
+            for x in np.where(sks[:ind] == 1)[0]: plt.vlines(x=x,  alpha = 1, ymin = -8, ymax = -2, color = 'red', linewidth = 2)
+            plt.ylim(-5,np.max(y)+3)
             plt.show()
 
 #=======================================================================

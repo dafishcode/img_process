@@ -11,12 +11,6 @@ import glob
 
 #paths
 
-
-datapath = "/Volumes/Dominic 10tb2/Data2process/Project/BLNLIGHTPTZ-FOXG1/210518-FOXG1/"
-os.chdir(datapath)   #set current directory to datapath
-tifs = sorted(glob.glob("*tif"))  
-
-
 def tiff_split(data_path, tif):   #define function tiff_split, and with two inputs
     os.mkdir(tif[tif.find('F'):tif.find('run')+6])         #create directory named with first two letters of file in tif
     img = imread(tif)             #function which reads the tif variable as a numpy array
@@ -33,13 +27,26 @@ def tiff_split(data_path, tif):   #define function tiff_split, and with two inpu
        
        #i counts from 1 to max frames, and then is plugged in to io.imsave to
        #ensure that the ith frame is then saved as an array with correct name
-     
-   
+
+
+datapath = "/Volumes/Dominic 10tb2/Data2process/Project/BLNDEV-WILDTYPE/210914-WILDTYPE/"
+os.chdir(datapath)   #set current directory to datapath
+tifs = sorted(glob.glob("*tif"))  
 for i in range(len(tifs)):    #loop through number of files in tifs folder
     tiff_split(data_path=datapath, tif = tifs [i])  
    
-     #here we can run the function and now define what the parameters are
-     #i loops through 1 to max number of files - i is then an argument for
-     #tif, becoming the ith value of tifs - can then loop through these
-     #files with a loop running rithin each frame in each file
+     
+datapath = "/Volumes/Dominic 10tb2/Data2process/Project/BLNDEV-WILDTYPE/210916-WILDTYPE/"
+os.chdir(datapath)   #set current directory to datapath
+tifs = sorted(glob.glob("*tif"))  
+for i in range(len(tifs)):    #loop through number of files in tifs folder
+    tiff_split(data_path=datapath, tif = tifs [i])  
+   
+     
+datapath = "/Volumes/Dominic 10tb2/Data2process/Project/BLNDEV-WILDTYPE/210920-WILDTYPE/"
+os.chdir(datapath)   #set current directory to datapath
+tifs = sorted(glob.glob("*tif"))  
+for i in range(len(tifs)):    #loop through number of files in tifs folder
+    tiff_split(data_path=datapath, tif = tifs [i])  
+   
      
