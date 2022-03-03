@@ -86,7 +86,8 @@ def load_prereg(experiment, file, modality, condition, prefix, disk, Fdata):
     dict_list = ['coord', 'trace', 'bind', 'dff']
     Fish = {}
     def grab(Fdata, experiment, condition, pref, number, age, name):
-        out = adfn.return_files(Fdata, experiment, '*' + experiment + pref + '-' + number + '*' + age + '*' + condition + name )
+        #out = adfn.return_files(Fdata, experiment, '*' + experiment + pref + '-' + number + '*' + age + '*' + condition + name 
+        out = adfn.return_files(Fdata, 'PTZ-WILDTYPE-CCM/comb_2/', '*' + 'PTZ-WILDTYPE' + pref + '-' + number + '*' + age + '*' + condition + name )
         if len(out) > 1:
             print('More than one file found - check list length')
             return()
